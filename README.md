@@ -1,5 +1,7 @@
 # ProveTok Stage0-4 Only (No LLM Generation)
 
+中文可执行说明：[`RUN_GUIDE_CN.md`](./RUN_GUIDE_CN.md)
+
 This codebase is intentionally narrowed to your requested scope:
 
 1. Stage 0-2 deterministic token bank
@@ -73,6 +75,19 @@ Per case:
   - case-level config line: `B, k, B_plan, lambda_spatial, tau_IoU, ell_coarse, beta`
   - sentence lines: `sentence_text, q_s, topk_token_ids, topk_scores, violations`
 
+## Acceptance Script
+
+- `validate_stage0_4_outputs.py`
+
+Run:
+
+```powershell
+python validate_stage0_4_outputs.py `
+  --out_dir outputs_stage0_4 `
+  --datasets ctrate,radgenome `
+  --save_report outputs_stage0_4\validation_report.json
+```
+
 ## Main Entry
 
 - `run_mini_experiment.py`
@@ -86,6 +101,8 @@ Default expected manifest columns:
 Optional:
 
 - `split` (used for stratified mini subset when `--build_mini` is set)
+- `spacing_x`, `spacing_y`, `spacing_z` are not required because spacing is read from image metadata.
+  If input is `.npy`, spacing defaults to `(1.0, 1.0, 1.0)` mm.
 
 ## Run
 
