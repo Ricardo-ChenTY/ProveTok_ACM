@@ -1,7 +1,9 @@
 # ProveTok Stage0-4 Only (No LLM Generation)
 
 中文可执行说明：[`RUN_GUIDE_CN.md`](./RUN_GUIDE_CN.md)
+
 中英文dataset下载说明/Download Instructions in Chinese/English：[`DOWNLOAD_GUIDE.md`](./Scripts/DOWNLOAD_GUIDE.md)
+
 This codebase is intentionally narrowed to your requested scope:
 
 1. Stage 0-2 deterministic token bank
