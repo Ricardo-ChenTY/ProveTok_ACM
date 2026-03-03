@@ -88,6 +88,7 @@ Run:
 python validate_stage0_4_outputs.py `
   --out_dir outputs_stage0_4 `
   --datasets ctrate,radgenome `
+  --expected_cases_per_dataset 450 `
   --save_report outputs_stage0_4\validation_report.json
 ```
 

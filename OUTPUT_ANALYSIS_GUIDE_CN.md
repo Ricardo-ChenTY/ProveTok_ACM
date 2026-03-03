@@ -24,12 +24,12 @@
 
 ---
 
-## 2. 输出目录应该长什么样
+## 2. 输出目录应该长什么样（450 小样本）
 
-假设 `--out_dir outputs_stage0_4_full450_cuda5090`，典型结构如下：
+假设 `--out_dir outputs_stage0_4_450`，典型结构如下：
 
 ```text
-outputs_stage0_4_full450_cuda5090/
+outputs_stage0_4_450/
   summary.csv
   ctrate_case_summary.csv
   radgenome_case_summary.csv
@@ -57,7 +57,7 @@ outputs_stage0_4_full450_cuda5090/
 
 ---
 
-## 3. 按你们预设参数时，应期待的结果
+## 3. 按你们预设参数时，应期待的结果（450/450）
 
 常见预设（你们之前在用）：
 
@@ -79,15 +79,22 @@ outputs_stage0_4_full450_cuda5090/
    - `topk_scores` 与 `topk_token_ids` 等长
    - `violations` 为数组（可空）
 
+此外对 450 小样本，若你是 `--build_mini --max_cases 450`：
+
+1. `summary.csv` 中 `ctrate` 的 `cases` 应接近/等于 `450`
+2. `summary.csv` 中 `radgenome` 的 `cases` 应接近/等于 `450`
+3. 两个数据集的 case 目录数应与上面一致
+
 ---
 
 ## 4. 快速验收（强烈建议每次都跑）
 
 ```powershell
 python validate_stage0_4_outputs.py `
-  --out_dir outputs_stage0_4_full450_cuda5090 `
+  --out_dir outputs_stage0_4_450 `
   --datasets ctrate,radgenome `
-  --save_report outputs_stage0_4_full450_cuda5090\validation_report.json
+  --expected_cases_per_dataset 450 `
+  --save_report outputs_stage0_4_450\validation_report.json
 ```
 
 结果解释：
@@ -102,7 +109,7 @@ python validate_stage0_4_outputs.py `
 ```python
 import pandas as pd, json, glob, os
 
-out_dir = "outputs_stage0_4_full450_cuda5090"
+out_dir = "outputs_stage0_4_450"
 summary = pd.read_csv(os.path.join(out_dir, "summary.csv"))
 print(summary.groupby("dataset", as_index=False).agg(
     cases=("case_id","count"),
@@ -144,7 +151,7 @@ drive.mount('/content/drive')
 
 ```bash
 !apt-get -y install unrar
-!unrar x "/content/drive/MyDrive/<path>/outputs_stage0_4_full450_cuda5090.rar" /content/data/
+!unrar x "/content/drive/MyDrive/<path>/outputs_stage0_4_450.rar" /content/data/
 ```
 
 ---

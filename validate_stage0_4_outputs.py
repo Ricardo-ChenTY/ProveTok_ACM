@@ -228,7 +228,11 @@ def validate_case(case_dir: Path, dataset: str) -> CaseValidation:
     )
 
 
-def validate_outputs(out_dir: Path, datasets: List[str]) -> Tuple[List[CaseValidation], int]:
+def validate_outputs(
+    out_dir: Path,
+    datasets: List[str],
+    expected_cases_per_dataset: int = 0,
+) -> Tuple[List[CaseValidation], int]:
     results: List[CaseValidation] = []
     for ds in datasets:
         ds_dir = out_dir / "cases" / ds
@@ -244,6 +248,18 @@ def validate_outputs(out_dir: Path, datasets: List[str]) -> Tuple[List[CaseValid
             )
             continue
         case_dirs = [p for p in ds_dir.iterdir() if p.is_dir()]
+        if expected_cases_per_dataset > 0 and len(case_dirs) != expected_cases_per_dataset:
+            results.append(
+                CaseValidation(
+                    dataset=ds,
+                    case_id="__dataset__",
+                    passed=False,
+                    errors=[
+                        f"expected {expected_cases_per_dataset} cases, found {len(case_dirs)} under: {ds_dir}"
+                    ],
+                    warnings=[],
+                )
+            )
         if len(case_dirs) == 0:
             results.append(
                 CaseValidation(
@@ -266,13 +282,23 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Validate Stage0-4 output folder against A/B/C/D expectations.")
     parser.add_argument("--out_dir", type=str, default="outputs_stage0_4")
     parser.add_argument("--datasets", type=str, default="ctrate,radgenome")
+    parser.add_argument(
+        "--expected_cases_per_dataset",
+        type=int,
+        default=0,
+        help="If >0, enforce exact case count per dataset (e.g. 450).",
+    )
     parser.add_argument("--save_report", type=str, default="")
     args = parser.parse_args()
 
     out_dir = Path(args.out_dir)
     datasets = [x.strip() for x in args.datasets.split(",") if x.strip()]
 
-    results, n_failed = validate_outputs(out_dir, datasets)
+    results, n_failed = validate_outputs(
+        out_dir,
+        datasets,
+        expected_cases_per_dataset=int(args.expected_cases_per_dataset),
+    )
     n_total = len(results)
     n_pass = n_total - n_failed
 
