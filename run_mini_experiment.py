@@ -4,22 +4,22 @@ from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 
-from provetok.config import ProveTokConfig
-from provetok.dataset_tools import build_ctrate_radgenome_minis
-from provetok.preprocess import (
+from ProveTok_main_exp.config import ProveTokConfig
+from ProveTok_main_exp.dataset_tools import build_ctrate_radgenome_minis
+from ProveTok_main_exp.preprocess import (
     ct_intensity_normalize,
     load_volume_with_meta,
     resize_volume,
     resampled_spacing_xyz_mm,
 )
-from provetok.simple_modules import ReportSentencePlanner, RuleBasedAnatomyResolver
-from provetok.stage0_scorer import DeterministicArtifactScorer
-from provetok.stage1_swinunetr_encoder import FrozenSwinUNETREncoder
-from provetok.stage2_octree_splitter import AdaptiveOctreeSplitter
-from provetok.stage3_router import Router
-from provetok.stage4_verifier import Verifier
-from provetok.stage0_4_runner import run_case_stage0_4, Stage04Components
-from provetok.text_encoder import DeterministicTextEncoder
+from ProveTok_main_exp.simple_modules import ReportSentencePlanner, RuleBasedAnatomyResolver
+from ProveTok_main_exp.stage0_scorer import DeterministicArtifactScorer
+from ProveTok_main_exp.stage1_swinunetr_encoder import FrozenSwinUNETREncoder
+from ProveTok_main_exp.stage2_octree_splitter import AdaptiveOctreeSplitter
+from ProveTok_main_exp.stage3_router import Router
+from ProveTok_main_exp.stage4_verifier import Verifier
+from ProveTok_main_exp.stage0_4_runner import run_case_stage0_4, Stage04Components
+from ProveTok_main_exp.text_encoder import DeterministicTextEncoder
 
 
 def _run_manifest(
