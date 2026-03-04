@@ -4,8 +4,9 @@
 
 1. 本次代码改了什么
 2. Colab 需要准备什么
-3. 怎么重跑 450/450（CP strict）
-4. 怎么验收输出是否达标
+3. 先做 ckpt 可用性探测（强制）
+4. 怎么重跑 450/450（CP strict）
+5. 怎么验收输出是否达标
 
 ## 1) 本次改动摘要（你朋友需要知道）
 
@@ -41,6 +42,7 @@
 - CT-RATE manifest CSV（至少含列：`case_id, volume_path, report_text`）
 - RadGenome manifest CSV（至少含列：`case_id, volume_path, report_text`）
 - SwinUNETR checkpoint（`--encoder_ckpt`）
+  - 注意：`有链接 != 可用`，必须先跑 probe（见第 3 节）
 
 ### 建议目录（Google Drive）
 
@@ -49,7 +51,42 @@
 - `/content/drive/MyDrive/Data/checkpoints/swinunetr.ckpt`
 - 输出：`/content/drive/MyDrive/Data/outputs_stage0_4_full450_cp_strict`
 
-## 3) Colab 一键步骤
+## 3) 先做 ckpt 可用性探测（强制）
+
+你们当前代码固定模型签名是：
+
+- `SwinUNETR(in_channels=1, out_channels=2, feature_size=48)`
+
+很多公开权重是 `out_channels=14` 或 `in_channels=4`，下载后会在加载时报 shape mismatch。
+所以在 450/450 前，先跑一次 probe；probe 不通过就不要跑主实验。
+
+```bash
+# 3.1 先探测 checkpoint（本地路径版本）
+!python Scripts/ckpt_probe.py \
+  --ckpt_path /content/drive/MyDrive/Data/checkpoints/swinunetr.ckpt \
+  --in_channels 1 \
+  --out_channels 2 \
+  --feature_size 48 \
+  --save_report /content/drive/MyDrive/Data/ckpt_probe_report.json
+```
+
+如果你只有 URL，也可以：
+
+```bash
+!python Scripts/ckpt_probe.py \
+  --ckpt_url "https://<your_ckpt_link>" \
+  --in_channels 1 \
+  --out_channels 2 \
+  --feature_size 48 \
+  --save_report /content/drive/MyDrive/Data/ckpt_probe_report.json
+```
+
+判定标准：
+
+- 返回码 `0`，且 JSON 里 `compatible=true` 才能继续 `--cp_strict`
+- 如果 `compatible=false`，先换权重，不要直接跑 450
+
+## 4) Colab 一键步骤
 
 在 Colab 中新开代码单元，按顺序运行：
 
@@ -102,7 +139,7 @@ git clone https://github.com/Ricardo-ChenTY/ProveTok_ACM.git
   --save_report /content/drive/MyDrive/Data/outputs_stage0_4_full450_cp_strict/validation_report.json
 ```
 
-## 4) 期望输出结构
+## 5) 期望输出结构
 
 输出目录下至少有：
 
@@ -110,23 +147,27 @@ git clone https://github.com/Ricardo-ChenTY/ProveTok_ACM.git
 - `ctrate_case_summary.csv`
 - `radgenome_case_summary.csv`
 - `run_meta.json`
+- `ckpt_probe_report.json`（建议保留，证明 ckpt 通过探测）
 - `cases/ctrate/<case_id>/{tokens.npy,tokens.pt,tokens.json,bank_meta.json,trace.jsonl}`
 - `cases/radgenome/<case_id>/{tokens.npy,tokens.pt,tokens.json,bank_meta.json,trace.jsonl}`
 
-## 5) 如何判断达标
+## 6) 如何判断达标
 
 - `validate_stage0_4_outputs.py` 退出码为 0
 - 输出里没有 `expected ... found ...` 的 dataset 级错误
+- `ckpt_probe_report.json` 里 `compatible=true`
 - `run_meta.json` 中：
   - `ctrate.selected_rows == 450`
   - `radgenome.selected_rows == 450`
   - `cp_strict == true`
   - `text_encoder == "semantic"`
 
-## 6) 常见报错快速定位
+## 7) 常见报错快速定位
 
 - `CP strict mode requires --encoder_ckpt`
   - checkpoint 路径不对或没传
+- `ckpt_probe.py` 返回 `compatible=false`
+  - 这个 checkpoint 和当前模型签名不匹配（常见是输入/输出通道或 key 前缀不一致）
 - `duplicated case_id detected`
   - manifest 的 `case_id` 有重复
 - `expected 450 cases, found ...`
