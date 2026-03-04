@@ -1,180 +1,124 @@
-# 输出分析与换机操作指南（Stage0-4）
+﻿# Stage0-4 实验结果说明（最新覆盖版）
 
-这份文档给“换电脑继续分析”使用。目标是让你或协作者在新机器上快速判断：
-
-1. 当前程序在做什么  
-2. 输出是否符合预期  
-3. 怎么在本地/Colab做分析  
+更新日期：2026-03-04  
+范围：CT-RATE 450 + RadGenome 450（共 900 例）  
+口径：Stage0-4（无 LLM 生成）
 
 ---
 
-## 1. 当前程序形态（你们现在跑的是什么）
+## 1. 本轮产出是什么
 
-当前主流程是 **Stage0-4（无LLM生成）**：
+本轮分析基于输出目录中的聚合文件：
 
-1. Stage 0-2：确定性 token bank（SwinUNETR + 八叉树分裂）
-2. Stage 3：router（teacher-forcing，用参考报告句子做查询）
-3. Stage 4：verifier（R1-R5规则审计）
-4. Stage 6：日志落盘（trace.jsonl）
+- `dataset_aggregate.csv`
+- `sentence_violation_rate.csv`
+- `rule_violation_count.csv`
+- `abnormal_cases_ranked.csv`
 
-核心入口脚本：
-
-- `run_mini_experiment.py`
-- `validate_stage0_4_outputs.py`
+这些文件用于做“流程是否成立 + 误差分布诊断”，不是最终论文结果。
 
 ---
 
-## 2. 输出目录应该长什么样（450 小样本）
+## 2. 关键结果（450/450）
 
-假设 `--out_dir outputs_stage0_4_450`，典型结构如下：
+### 2.1 数据集级统计
 
-```text
-outputs_stage0_4_450/
-  summary.csv
-  ctrate_case_summary.csv
-  radgenome_case_summary.csv
-  cases/
-    ctrate/
-      <case_id>/
-        tokens.npy
-        tokens.pt
-        tokens.json
-        bank_meta.json
-        trace.jsonl
-    radgenome/
-      <case_id>/
-        tokens.npy
-        tokens.pt
-        tokens.json
-        bank_meta.json
-        trace.jsonl
-  cache/
-    ctrate/stage0/*.npz
-    ctrate/stage1/*.npy
-    radgenome/stage0/*.npz
-    radgenome/stage1/*.npy
-```
+- `ctrate`: 450 例，平均句子数 7.99，平均违规数 6.93
+- `radgenome`: 450 例，平均句子数 7.98，平均违规数 7.43
+
+### 2.2 句级违规率
+
+- `ctrate`: 3596 句中 2630 句有违规，违规率 `0.731`
+- `radgenome`: 3591 句中 2555 句有违规，违规率 `0.712`
+- 总体：7187 句中 5185 句有违规，总体约 `0.721`
+
+### 2.3 规则贡献（按违规条数）
+
+- `R2_ANATOMY`: 2651（最高）
+- `R1_LATERALITY`: 2009
+- `R5_NEGATION`: 925
+- `R4_SIZE`: 879
+- `R3_DEPTH`: 0（当前基本未触发）
+
+### 2.4 异常 case 分布
+
+- `violation_ratio = 1.0` 的 case：54 / 900
+- `n_violation_sentences >= 7` 的 case：283 / 900
+- `violation_ratio` 中位数约 0.75，四分位上界约 0.875
 
 ---
 
-## 3. 按你们预设参数时，应期待的结果（450/450）
+## 3. 结果解读（当前阶段）
 
-常见预设（你们之前在用）：
+1. 流程已跑通：
+- 450/450 规模完成，可做系统性误差定位。
 
-- `B=64`
-- `k=8`
-- `lambda_spatial=0.3`
-- `tau_iou=0.1`
-- `beta=0.1`
-- `resize=(128,128,128)`
+2. 当前质量属于“可诊断、待优化”：
+- 句级违规率 > 0.70，偏高。
+- 主要矛盾集中在 `R2` 和 `R1`。
 
-在该预设下，**每个 case 的预期**：
-
-1. `bank_meta.json["B"]` 通常等于 `64`
-2. `tokens.npy` 形状应为 `[B, d]`（`B` 与 `bank_meta` 一致）
-3. `trace.jsonl` 第一行 `case_meta` 中应包含  
-   `B, k, B_plan, lambda_spatial, tau_IoU, ell_coarse, beta`
-4. 每个 `sentence` 行：
-   - `topk_token_ids` 长度通常为 `k=8`（除非候选不足）
-   - `topk_scores` 与 `topk_token_ids` 等长
-   - `violations` 为数组（可空）
-
-此外对 450 小样本，若你是 `--build_mini --max_cases 450`：
-
-1. `summary.csv` 中 `ctrate` 的 `cases` 应接近/等于 `450`
-2. `summary.csv` 中 `radgenome` 的 `cases` 应接近/等于 `450`
-3. 两个数据集的 case 目录数应与上面一致
+3. 优先优化顺序：
+- 先 `R2_ANATOMY`（最大头）
+- 再 `R1_LATERALITY`
+- 然后修 `R5_NEGATION`
+- 同时补 `R3_DEPTH` 触发覆盖
 
 ---
 
-## 4. 快速验收（强烈建议每次都跑）
+## 4. 下一步实验方案（已接入脚本）
 
-```powershell
-python validate_stage0_4_outputs.py `
-  --out_dir outputs_stage0_4_450 `
-  --datasets ctrate,radgenome `
-  --expected_cases_per_dataset 450 `
-  --save_report outputs_stage0_4_450\validation_report.json
-```
+### 4.1 先做 50/50 的 R2 sweep
 
-结果解释：
+目标：只调整 `r2_min_support_ratio`，观察是否能显著降低总体违规率且不引入副作用。
 
-- `Failed: 0`：结构层面通过
-- `Failed > 0`：先看 `validation_report.json` 的 `errors`
+推荐扫描：
 
----
+- `1.0`（当前严格基线）
+- `0.8`
+- `0.6`
 
-## 5. 本地快速分析（不读影像，只读结果）
-
-```python
-import pandas as pd, json, glob, os
-
-out_dir = "outputs_stage0_4_450"
-summary = pd.read_csv(os.path.join(out_dir, "summary.csv"))
-print(summary.groupby("dataset", as_index=False).agg(
-    cases=("case_id","count"),
-    mean_tokens=("n_tokens","mean"),
-    mean_sentences=("n_sentences","mean"),
-    total_violations=("n_violations","sum"),
-))
-
-# 统计每类规则触发次数
-rule_count = {}
-for p in glob.glob(os.path.join(out_dir, "cases", "*", "*", "trace.jsonl")):
-    with open(p, "r", encoding="utf-8") as f:
-        lines = [json.loads(x) for x in f if x.strip()]
-    for row in lines[1:]:
-        for v in row.get("violations", []):
-            rid = v.get("rule_id", "UNKNOWN")
-            rule_count[rid] = rule_count.get(rid, 0) + 1
-print(rule_count)
-```
-
----
-
-## 6. Colab 分析建议（你要出门换电脑时）
-
-建议上传“轻量分析包”到 Drive：
-
-- 必留：`summary.csv`, `*_case_summary.csv`, `trace.jsonl`, `bank_meta.json`
-- 可选：`tokens.json`
-- 可不上传：`tokens.npy`, `tokens.pt`, 原始 `.nii.gz`
-
-挂载 Drive 示例：
-
-```python
-from google.colab import drive
-drive.mount('/content/drive')
-```
-
-如果你上传的是 `.rar`：
+Colab 一键脚本：
 
 ```bash
-!apt-get -y install unrar
-!unrar x "/content/drive/MyDrive/<path>/outputs_stage0_4_450.rar" /content/data/
+bash Scripts/run_r2_sweep_50_cp_strict_colab.sh
 ```
 
+汇总脚本：
+
+```bash
+python Scripts/summarize_r2_sweep.py \
+  --sweep_root /content/drive/MyDrive/Data/outputs_stage0_4_r2sweep_50_cp_strict \
+  --save_csv /content/drive/MyDrive/Data/outputs_stage0_4_r2sweep_50_cp_strict/sweep_summary.csv
+```
+
+### 4.2 决策门槛
+
+从 sweep 里选择进入 450/450 的配置时，建议满足：
+
+1. `violation_sentence_rate` 明显下降
+2. `R2` 下降明显
+3. `R1/R5` 不出现爆发式上升
+4. `validation_report` 结构验收通过
+
 ---
 
-## 7. 换机 Checklist（10分钟版）
+## 5. 给协作同学的最小交付物
 
-1. `git pull` 拉最新代码  
-2. 创建环境：`conda env create -f environment.yaml`  
-3. `python run_mini_experiment.py --help` 确认入口正常  
-4. 跑一小批（`--max_cases 5`）做 smoke test  
-5. 跑验收脚本确认结构正确  
-6. 再跑完整分析
+重跑后至少交：
+
+- `summary.csv`
+- `ctrate_case_summary.csv`
+- `radgenome_case_summary.csv`
+- `run_meta.json`
+- `validation_report.json`
+- `cases/*/*/trace.jsonl`
+
+如果是 strict 重跑，额外保留：
+
+- `ckpt_probe_report.json`
 
 ---
 
-## 8. 常见异常与定位
+## 6. 当前结论（一句话）
 
-1. `ModuleNotFoundError`  
-通常是包名/目录名不一致，先执行 `python run_mini_experiment.py --help` 复测。
-
-2. `Missing column 'volume_path'`  
-manifest 列名不一致，使用：
-`--volume_col --report_col --case_id_col` 指定。
-
-3. `Failed > 0` 但程序跑完了  
-说明格式或字段异常，按 `validation_report.json` 定位具体 case 修正。
+这版 450/450 结果证明了 Stage0-4 流程可运行并可诊断，但违规率仍高；下一步应先用 R2 sweep 在小规模（50/50）上选稳态参数，再回到 450/450 复核。
