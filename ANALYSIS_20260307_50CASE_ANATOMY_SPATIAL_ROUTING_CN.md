@@ -1,63 +1,108 @@
-﻿# 50-case 对比分析与下一步建议（更新版）
+# Stage0-4 阶段性分析（含本次 450/450 结果）
 
 更新日期：2026-03-07  
-范围：CT-RATE 50 + RadGenome 50（共 100 case）
+作者说明：本文件覆盖此前同名报告，加入本次 450/450 全量运行与 notebook 导出结果。
 
-## 1. 对比对象
+## 1. 本次新增结果（450/450）
 
-1. Baseline（2026-03-06 22:50:10）  
-路径：`outputs_stage0_4_follow_request_20260306_225010/r2_taut005_ratio_0.8_nor4r5`
-2. Run-A（2026-03-07 13:44）  
-路径：`outputs_stage0_4_follow_request_20260307_1344/r2_taut005_ratio_0.8_nor4r5`
-3. Run-B（2026-03-07 14:10）  
-路径：`outputs_stage0_4_follow_request_20260307_1410/r2_taut005_ratio_0.8_nor4r5`
-4. Run-C（2026-03-07 15:00，新增 `--r2_skip_bilateral`）  
-路径：`outputs_stage0_4_follow_request_20260307_1500/r2_taut005_ratio_0.8_nor4r5_skip_bilateral`
+运行目录：`outputs_stage0_4_follow_request_20260307_1705/outputs_stage0_4_450_128`
 
-## 2. 总结结论
+关键配置（与 guide 一致）：
 
-1. Run-A/Run-B 完全一致，说明在同参数下复现稳定。  
-2. Run-C（加 `--r2_skip_bilateral`）相对 Run-B 明显下降：总体句级违规率从 `42.00%` 降到 `17.375%`。  
-3. 但 Run-C 与前面 run 的 `R2` 口径不再完全等价（因为跳过了 bilateral 句子的 R2 判定），解释结果时应单独标注。
+- `cp_strict = true`
+- `r2_mode = ratio`
+- `r2_min_support_ratio = 0.8`
+- `tau_iou = 0.05`
+- `anatomy_spatial_routing = true`
+- `r2_skip_bilateral = true`
+- `r4_disabled = true`
+- `r5_fallback_disabled = true`
 
-## 3. 四次核心指标对比
+结构验收：
 
-| Run | Violation Sentences | Violation Sentence Rate | Total Violations | R2_ANATOMY | R1_LATERALITY |
-|---|---:|---:|---:|---:|---:|
-| Baseline | 366 / 800 | 45.75% | 388 | 269 | 119 |
-| Run-A | 336 / 800 | 42.00% | 339 | 239 | 100 |
-| Run-B | 336 / 800 | 42.00% | 339 | 239 | 100 |
-| Run-C (`r2_skip_bilateral`) | 139 / 800 | 17.375% | 142 | 42 | 100 |
+- `validation_report.json`: `900` 条，`failed = 0`
 
-Run-B -> Run-C 变化：
-- 违规句率：`42.00% -> 17.375%`（`-24.625` pct）
-- 总违规条数：`339 -> 142`（`-197`）
-- `R2_ANATOMY`：`239 -> 42`（`-197`）
-- `R1_LATERALITY`：`100 -> 100`（不变）
+## 2. 450/450 核心数据
 
-## 4. Run-C 分数据集结果
+### 2.1 数据集聚合（来自 `dataset_aggregate.csv`）
 
-- `ctrate`: `90 / 400 = 22.50%`
-- `radgenome`: `52 / 400 = 13.00%`
+- `ctrate`: `450` case, `avg_violations=2.658`, `total_violations=1196`, `avg_vio_per_sent=0.333`
+- `radgenome`: `450` case, `avg_violations=2.209`, `total_violations=994`, `avg_vio_per_sent=0.277`
 
-## 5. 结果解释（重要）
+### 2.2 句级违规率（来自 `sentence_violation_rate.csv`）
 
-`--r2_skip_bilateral` 的效果本质是“对 bilateral 句子不计 R2”，因此可大幅降低当前 R2 主导的违规数。  
-这对工程稳定性有价值，但和“改进模型理解能力”的意义不同；建议在报告和后续实验中将该配置标记为 `policy-relaxed`。
+- `ctrate`: `1166 / 3596 = 32.42%`
+- `radgenome`: `974 / 3591 = 27.12%`
+- 总体：`2140 / 7187 = 29.78%`
 
-## 6. 下一步建议
+### 2.3 规则贡献（来自 `rule_violation_count.csv`）
 
-1. 保留两条线并行：  
-`strict线`：不加 `r2_skip_bilateral`，用于真实能力评估；  
-`relaxed线`：加 `r2_skip_bilateral`，用于当前版本可交付结果。
-2. 若目标是继续降 strict 线：优先处理 `mediastinum` 与 laterality 误触发（R1）。
-3. 进入 450/450 前，建议先在 50-case 再做一轮最小 sweep（只动 1 个参数），确认 R1 不反弹。
+- `R1_LATERALITY = 1770`
+- `R2_ANATOMY = 420`
 
-## 7. Run-C 关键产物
+占比（按规则计数）：
+
+- `R1`: 约 `80.8%`
+- `R2`: 约 `19.2%`
+
+### 2.4 病例分布（来自 `case_violation_ranked.csv`）
+
+- `violation_ratio == 1.0`: `0`
+- `violation_ratio >= 0.75`: `12`
+- 中位数：`0.25`
+- Q3：`0.375`
+
+## 3. 与前几次 50-case 的对比
+
+| Run | Cases | Sentences | Violation Sentence Rate | Total Violations | R1 | R2 |
+|---|---:|---:|---:|---:|---:|---:|
+| 50 baseline（3/6） | 100 | 800 | 45.75% | 388 | 119 | 269 |
+| 50 + anatomy（3/7 13:44） | 100 | 800 | 42.00% | 339 | 100 | 239 |
+| 50 + anatomy + skip（3/7 15:00） | 100 | 800 | 17.38% | 142 | 100 | 42 |
+| **450 + anatomy + skip（本次）** | **900** | **7187** | **29.78%** | **2190** | **1770** | **420** |
+
+## 4. 结果解读
+
+1. `r2_skip_bilateral` 在大规模上仍然有效：  
+`R2` 维持在较低水平（`420 / 7187 = 5.84%`），说明 bilateral 结构性误判被明显抑制。
+
+2. 当前主瓶颈已转移到 `R1_LATERALITY`：  
+`R1` 占到总规则违规约 80%，是后续优化的第一优先级。
+
+3. 50-case 到 450/450 有明显分布差异：  
+50-case 的 `17.38%` 在全量上升到 `29.78%`，说明小样本结果偏乐观，存在泛化差距。
+
+4. R2 仍有残留集中点：  
+`anatomy_r2_breakdown.csv` 显示本次 R2 主要来自 `mediastinum`（`420`）。
+
+## 5. 下一步建议（按优先级）
+
+### P0：先攻 R1（最高收益）
+
+1. laterality 触发前增加“显式侧别词”门槛（无 left/right 时不强触发）。  
+2. 对中线/非侧别解剖词（如 mediastinum 等）加 R1 豁免或降权。  
+3. 对否定句中的侧别匹配单独处理，减少误触发。
+
+### P1：收尾 R2（集中在 mediastinum）
+
+1. 扩充 mediastinum 词表映射与同义词。  
+2. 仅对 mediastinum 句子做定向阈值校准（避免全局放松）。
+
+### P2：验证策略
+
+1. 继续保留两条实验线：  
+`strict`（不 skip）用于能力评估；`relaxed`（skip bilateral）用于当前工程可交付。  
+2. 每次只改一个规则点，先做 50-case 回归，再上 450/450 复核。
+
+## 6. 本次可交付文件
 
 - `summary.csv`  
-`outputs_stage0_4_follow_request_20260307_1500/r2_taut005_ratio_0.8_nor4r5_skip_bilateral/summary.csv`
+`outputs_stage0_4_follow_request_20260307_1705/outputs_stage0_4_450_128/summary.csv`
 - `run_meta.json`  
-`outputs_stage0_4_follow_request_20260307_1500/r2_taut005_ratio_0.8_nor4r5_skip_bilateral/run_meta.json`
+`outputs_stage0_4_follow_request_20260307_1705/outputs_stage0_4_450_128/run_meta.json`
 - `validation_report.json`  
-`outputs_stage0_4_follow_request_20260307_1500/r2_taut005_ratio_0.8_nor4r5_skip_bilateral/validation_report.json`
+`outputs_stage0_4_follow_request_20260307_1705/outputs_stage0_4_450_128/validation_report.json`
+- `analysis_exports/`  
+`outputs_stage0_4_follow_request_20260307_1705/outputs_stage0_4_450_128/analysis_exports/`
+- `OUTPUT_ANALYSIS_COLAB.executed.ipynb`  
+`outputs_stage0_4_follow_request_20260307_1705/outputs_stage0_4_450_128/OUTPUT_ANALYSIS_COLAB.executed.ipynb`
