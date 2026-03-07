@@ -1,72 +1,91 @@
-# 50-case 对比分析（2026-03-07）
+# 50-case 三次对比分析与降违规方案（更新版）
+
+更新时间：2026-03-07  
+范围：CT-RATE 50 + RadGenome 50（共 100 case）
 
 ## 1. 对比对象
 
-- 基线运行（2026-03-06）  
-  `outputs_stage0_4_follow_request_20260306_225010/r2_taut005_ratio_0.8_nor4r5`
-- 本次运行（2026-03-07）  
-  `outputs_stage0_4_follow_request_20260307_1344/r2_taut005_ratio_0.8_nor4r5`
+1. 上上次（baseline）：`2026-03-06 22:50:10`  
+路径：`outputs_stage0_4_follow_request_20260306_225010/r2_taut005_ratio_0.8_nor4r5`
+2. 上次：`2026-03-07 13:44`  
+路径：`outputs_stage0_4_follow_request_20260307_1344/r2_taut005_ratio_0.8_nor4r5`
+3. 这次：`2026-03-07 14:10`  
+路径：`outputs_stage0_4_follow_request_20260307_1410/r2_taut005_ratio_0.8_nor4r5`
 
-两次均为 50/50（CT-RATE 50 + RadGenome 50），核心参数一致（`tau_iou=0.05`, `r2_mode=ratio`, `r2_min_support_ratio=0.8`, `r4_disabled`, `r5_fallback_disabled`, `cp_strict`），本次仅新增：
+说明：三次均为 50/50，核心参数一致；上次和这次均开启 `--anatomy_spatial_routing`。
 
-- `--anatomy_spatial_routing`
+## 2. 关键结论
 
-## 2. 结论（一句话）
+1. 相比上上次（baseline），当前方案已稳定下降：总体句级违规率 `45.75% -> 42.00%`（`-3.75` pct）。
+2. 上次与这次结果完全一致（复现通过）：`336/800` 违规句，`R2=239`，`R1=100`。
+3. 当前主要瓶颈依然集中在 `R2_ANATOMY`（尤其 `bilateral`、`mediastinum`），其次是 `R1_LATERALITY`。
 
-本次结果相较 2026-03-06 基线**有下降**：总体句级违规率从 `45.75%` 降到 `42.00%`（`-3.75` pct），`R2` 与 `R1` 同步下降。
+## 3. 三次核心指标对比
 
-## 3. 核心指标对比
+| Run | Violation Sentences | Violation Sentence Rate | Total Violations | R2_ANATOMY | R1_LATERALITY |
+|---|---:|---:|---:|---:|---:|
+| 上上次 | 366 / 800 | 45.75% | 388 | 269 | 119 |
+| 上次 | 336 / 800 | 42.00% | 339 | 239 | 100 |
+| 这次 | 336 / 800 | 42.00% | 339 | 239 | 100 |
 
-### 3.1 总体句级违规率
+这次 vs 上次：无差异。  
+这次 vs 上上次：违规句 `-30`，总违规 `-49`，R2 `-30`，R1 `-19`。
 
-- 基线：`366 / 800 = 45.75%`
-- 本次：`336 / 800 = 42.00%`
-- 变化：`-30` 违规句（`-3.75` pct）
+## 4. 分数据集结果（这次）
 
-### 3.2 规则贡献（按总句数 800 归一）
+- `ctrate`：`186/400 = 46.5%`
+- `radgenome`：`150/400 = 37.5%`
 
-- `R2_ANATOMY`：`269 -> 239`（`33.63% -> 29.88%`，`-3.75` pct）
-- `R1_LATERALITY`：`119 -> 100`（`14.88% -> 12.50%`，`-2.38` pct）
+## 5. case 分布变化（上上次 -> 这次）
 
-说明：本批次违规几乎都来自 `R2` 和 `R1`，其他规则在当前配置下未触发显著贡献。
-
-### 3.3 分数据集句级违规率
-
-- `ctrate`：`48.5% -> 46.5%`（`-2.0` pct）
-- `radgenome`：`43.0% -> 37.5%`（`-5.5` pct）
-
-## 4. 错误分布变化（case 维度）
-
-- `violation_ratio == 1.0`：两次均为 `0`
+- `violation_ratio == 1.0`：`0 -> 0`
 - `violation_ratio >= 0.75`：`9 -> 5`
-- `violation_ratio` 中位数：`0.500 -> 0.375`
-- `violation_ratio` Q3：`0.625 -> 0.500`
+- 中位数：`0.500 -> 0.375`
+- Q3：`0.625 -> 0.500`
 
-说明：高违规 case 占比进一步收缩，分布整体向低违规侧移动。
+说明：高违规 case 占比继续收缩，但仍有一批 `0.625~0.75` 的高风险 case。
 
-## 5. anatomy 维度观察（本次）
+## 6. anatomy 热点（这次）
 
-`anatomy_r2_breakdown.csv` 显示 R2 仍主要集中在：
+`anatomy_r2_breakdown.csv`：
 
-- `bilateral`：197
-- `mediastinum`：42
+- `bilateral`: 197
+- `mediastinum`: 42
 
-`anatomy_all_violation_rate.csv` 显示这两个关键词当前违规率仍为 `1.0`，是下一步最优先清理目标。
+`anatomy_all_violation_rate.csv`：
 
-## 6. 产物路径
+- `bilateral`: `197/197 = 1.0`
+- `mediastinum`: `42/42 = 1.0`
+- 其余关键词（left/right upper/lower lobe）本批次违规率接近 `0`
 
-- 汇总：`outputs_stage0_4_follow_request_20260307_1344/r2_taut005_ratio_0.8_nor4r5/summary.csv`
-- 验收：`outputs_stage0_4_follow_request_20260307_1344/r2_taut005_ratio_0.8_nor4r5/validation_report.json`
-- 分析导出目录：  
-  `outputs_stage0_4_follow_request_20260307_1344/r2_taut005_ratio_0.8_nor4r5/analysis_exports/`
-  - `dataset_aggregate.csv`
-  - `sentence_violation_rate.csv`
-  - `rule_violation_count.csv`
-  - `case_violation_ranked.csv`
-  - `sentence_detail.csv`
-  - `anatomy_r2_breakdown.csv`
-  - `anatomy_all_violation_rate.csv`
+结论：`bilateral` 和 `mediastinum` 是当前 R2 的核心“硬点”。
 
-## 7. 下一步建议
+## 7. 降违规建议（按优先级）
 
-在保持 `anatomy_spatial_routing` 开启的前提下，优先针对 `bilateral` / `mediastinum` 做定向规则修正或路由补偿，再进行 50-case 快速回归验证，满足稳定下降后再推进 450/450 全量复核。
+### P0（应先做，直接针对主要误差源）
+
+1. `bilateral` 改为“并侧支持”判定，不再按单侧 anatomy 约束。  
+建议：R2 对 `bilateral` 采用 `support(left OR right)` 逻辑，避免 top-k 全部被判 0 支持。
+2. `mediastinum` 增加 anatomy 映射覆盖与 bbox 匹配容差。  
+建议：扩充 mediastinum 词表同义项，并放宽其 IoU/支持比阈值（仅对该关键词生效）。
+
+### P1（第二步，控制副作用）
+
+1. 对 `R1_LATERALITY` 增加“无显式侧别词”豁免。  
+建议：句子未出现 left/right 且 anatomy 为中线/双侧时，不触发强 laterality mismatch。
+2. 对 anatomy 句子引入“关键词分组阈值”。  
+建议：`r2_min_support_ratio` 采用分组阈值，例如 `bilateral/mediastinum` 用较松阈值，其余保持 0.8。
+
+### P2（验证策略）
+
+1. 先做 50-case 局部回归（固定数据、固定随机种子），观察 R2 和总体是否继续下降。
+2. 若句级违规率可降到 `<=40%` 且 R1 不反弹，再进入 450/450 全量复核。
+
+## 8. 本次产物路径（这次 run）
+
+- `summary.csv`  
+`outputs_stage0_4_follow_request_20260307_1410/r2_taut005_ratio_0.8_nor4r5/summary.csv`
+- `validation_report.json`  
+`outputs_stage0_4_follow_request_20260307_1410/r2_taut005_ratio_0.8_nor4r5/validation_report.json`
+- `analysis_exports/`  
+`outputs_stage0_4_follow_request_20260307_1410/r2_taut005_ratio_0.8_nor4r5/analysis_exports/`
