@@ -191,6 +191,7 @@ def main() -> None:
     )
     parser.add_argument("--r4_disabled", action="store_true", help="Disable R4_SIZE check (union bbox threshold uncalibrated).")
     parser.add_argument("--r5_fallback_disabled", action="store_true", help="Disable R5 negation fallback lexicon.")
+    parser.add_argument("--r2_skip_bilateral", action="store_true", help="Skip R2_ANATOMY for 'bilateral' sentences (bbox=entire volume, structurally cannot pass IoU check).")
     parser.add_argument(
         "--anatomy_spatial_routing",
         action="store_true",
@@ -237,6 +238,8 @@ def main() -> None:
         cfg.verifier.r4_disabled = True
     if args.r5_fallback_disabled:
         cfg.verifier.r5_fallback_lexicon = False
+    if args.r2_skip_bilateral:
+        cfg.verifier.r2_skip_keywords = {"bilateral"}
     if args.anatomy_spatial_routing:
         cfg.router.anatomy_spatial_routing = True
 
@@ -313,6 +316,7 @@ def main() -> None:
         "r5_fallback_lexicon": bool(cfg.verifier.r5_fallback_lexicon),
         "r4_disabled": bool(args.r4_disabled),
         "r5_fallback_disabled": bool(args.r5_fallback_disabled),
+        "r2_skip_bilateral": bool(args.r2_skip_bilateral),
         "anatomy_spatial_routing": bool(cfg.router.anatomy_spatial_routing),
     }
     with (out_dir / "run_meta.json").open("w", encoding="utf-8") as f:

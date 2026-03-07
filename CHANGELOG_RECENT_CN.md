@@ -4,6 +4,33 @@
 
 ---
 
+## 第四轮改进：bilateral R2 Skip（解决结构性 IoU 不可能问题）
+
+### 根因分析
+
+`DEFAULT_ANATOMY_BOXES["bilateral"] = BBox3D(0, 1, 0, 1, 0, 1)` 覆盖整个 volume，
+单个 token bbox（level-2 = 16³ voxels）与整个 volume 的 IoU ≈ 4096/262144 ≈ **0.016**，
+永远小于 `tau_iou=0.05`。
+
+这意味着"bilateral"类句子的 R2 验证在**设计上不可能通过**，与 routing 质量无关。
+anatomy_spatial_routing 后 bilateral 仍有 197 违规（占 R2 总量 239 的 82%），全为此原因。
+
+"bilateral"描述的是**分布语义**（两侧均有），不是一个可定位的解剖区域，
+用 IoU 检查其空间覆盖本身就是语义错误。
+
+### 修正：`--r2_skip_bilateral`
+
+新增 bilateral R2 skip：有 `anatomy_keyword=="bilateral"` 时跳过 R2 检查。
+预期效果：R2 违规率从 29.9% 降至 **~5.25%**（仅剩 mediastinum 等），总体从 42% 降至 **~14%**。
+
+### 修改清单
+
+1. `ProveTok_Main_experiment/config.py`：`VerifierConfig` 新增 `r2_skip_keywords: set = field(default_factory=set)`
+2. `ProveTok_Main_experiment/stage4_verifier.py`：R2 块加守卫，`anatomy_keyword in r2_skip_keywords` 时跳过
+3. `run_mini_experiment.py`：新增 `--r2_skip_bilateral` flag，`run_meta.json` 记录字段
+
+---
+
 ## 第三轮改进：Anatomy-Primary Routing（解决跨模态对齐缺失）
 
 ### 根因分析

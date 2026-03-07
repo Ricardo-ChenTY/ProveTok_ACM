@@ -104,7 +104,11 @@ class Verifier:
 
         # R2 anatomy IoU consistency
         anatomy_bbox = self.anatomy_bbox_resolver(plan.anatomy_keyword)
-        if anatomy_bbox is not None and cited:
+        r2_skipped = bool(
+            plan.anatomy_keyword
+            and plan.anatomy_keyword.lower() in self.cfg.r2_skip_keywords
+        )
+        if anatomy_bbox is not None and cited and not r2_skipped:
             iou_by_tok = {tok.token_id: float(tok.bbox.iou(anatomy_bbox)) for tok in cited}
             if self.cfg.use_max_iou_for_r2:
                 max_iou = max(iou_by_tok.values())
