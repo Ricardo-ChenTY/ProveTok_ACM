@@ -1,0 +1,42 @@
+{
+  "build_mini": false,
+  "ctrate": {
+    "dataset": "ctrate",
+    "manifest_csv": "manifests_5090\\ctrate_manifest_450_selected.csv",
+    "manifest_rows": 450,
+    "selected_rows": 50,
+    "processed_rows": 50,
+    "max_cases": 50
+  },
+  "radgenome": {
+    "dataset": "radgenome",
+    "manifest_csv": "manifests_5090\\radgenome_manifest_450_selected.csv",
+    "manifest_rows": 450,
+    "selected_rows": 50,
+    "processed_rows": 50,
+    "max_cases": 50
+  },
+  "token_budget_b": 64,
+  "k_per_sentence": 8,
+  "lambda_spatial": 0.3,
+  "tau_iou": 0.05,
+  "beta": 0.1,
+  "device": "cuda",
+  "resize_dhw": [
+    64,
+    64,
+    64
+  ],
+  "cp_strict": true,
+  "text_encoder": "semantic",
+  "text_encoder_model": "sentence-transformers/all-MiniLM-L6-v2",
+  "text_encoder_device": "cuda",
+  "encoder_ckpt": "checkpoints_5090\\swinunetr_in1_out2_fs48_random_init.ckpt",
+  "r2_mode": "ratio",
+  "r2_min_support_ratio": 0.8,
+  "r5_fallback_lexicon": false,
+  "r4_disabled": true,
+  "r5_fallback_disabled": true,
+  "r2_skip_bilateral": true,
+  "anatomy_spatial_routing": true
+}
