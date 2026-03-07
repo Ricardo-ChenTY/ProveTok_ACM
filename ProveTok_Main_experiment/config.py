@@ -30,6 +30,8 @@ class RouterConfig:
     infonce_tau: float = 0.07
     planning_level_cutoff: int = 2
     planning_budget_cap: int = 32
+    anatomy_spatial_routing: bool = False
+    anatomy_tiebreak_eps: float = 0.05
 
     def planning_budget(self, token_budget_b: int) -> int:
         return min(self.planning_budget_cap, token_budget_b // 4)

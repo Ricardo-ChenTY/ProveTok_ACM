@@ -191,6 +191,14 @@ def main() -> None:
     )
     parser.add_argument("--r4_disabled", action="store_true", help="Disable R4_SIZE check (union bbox threshold uncalibrated).")
     parser.add_argument("--r5_fallback_disabled", action="store_true", help="Disable R5 negation fallback lexicon.")
+    parser.add_argument(
+        "--anatomy_spatial_routing",
+        action="store_true",
+        help=(
+            "Route primarily by anatomy bbox IoU instead of cross-modal dot product. "
+            "Recommended when w_proj is untrained (identity). Semantic score used as tiebreaker only."
+        ),
+    )
     args = parser.parse_args()
 
     out_dir = Path(args.out_dir)
@@ -229,6 +237,8 @@ def main() -> None:
         cfg.verifier.r4_disabled = True
     if args.r5_fallback_disabled:
         cfg.verifier.r5_fallback_lexicon = False
+    if args.anatomy_spatial_routing:
+        cfg.router.anatomy_spatial_routing = True
 
 
     text_encoder_mode = str(args.text_encoder).strip().lower()
@@ -303,6 +313,7 @@ def main() -> None:
         "r5_fallback_lexicon": bool(cfg.verifier.r5_fallback_lexicon),
         "r4_disabled": bool(args.r4_disabled),
         "r5_fallback_disabled": bool(args.r5_fallback_disabled),
+        "anatomy_spatial_routing": bool(cfg.router.anatomy_spatial_routing),
     }
     with (out_dir / "run_meta.json").open("w", encoding="utf-8") as f:
         json.dump(run_meta, f, ensure_ascii=False, indent=2)

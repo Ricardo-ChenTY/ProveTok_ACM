@@ -4,6 +4,70 @@
 
 ---
 
+## 第三轮改进：Anatomy-Primary Routing（解决跨模态对齐缺失）
+
+### 根因分析
+
+Router 的打分公式（Eq 10+11）：
+
+```
+score = dot(normalize(text_query), normalize(w_proj @ image_feature))
+        + lambda_spatial * token_bbox.iou(anatomy_bbox)
+```
+
+`w_proj` 在初始化时是**单位阵**（identity），未经训练，因此 text query（384 维，来自
+all-MiniLM-L6-v2）与 image feature（SwinUNETR 输出）之间的 dot product 是
+**跨模态随机噪声**，与解剖语义无关。
+
+同时，`lambda_spatial = 0.3`，而 token 与解剖区域的 IoU ≈ 0.069，实际贡献只有
+`0.3 × 0.069 = 0.021`，远小于 dot product 噪声（std ≈ 0.3-0.5），被完全淹没。
+
+**结论**：当 anatomy_bbox 可用时，空间 IoU 是唯一有物理意义的信号，dot product 是噪声。
+
+### 修正：`--anatomy_spatial_routing` 模式
+
+新增 anatomy-primary routing：有 anatomy_bbox 时，IoU 为主分，semantic dot 仅作
+微小 tiebreaker（权重 `anatomy_tiebreak_eps = 0.05`），不影响排序主逻辑。
+
+```
+anatomy_spatial_routing=True 且 anatomy_bbox 可用时：
+  score = iou + 0.05 * dot(text_query, projected_image_feature)
+
+anatomy_spatial_routing=False（默认，保持原有行为）：
+  score = dot(text_query, projected_image_feature) + lambda_spatial * iou
+```
+
+无 anatomy_bbox 的句子（通用描述）保持原有 semantic dot 路由不变。
+
+### 预期效果
+
+- **R2_ANATOMY**：有 anatomy keyword 的句子 routing 精度大幅提升，R2 违规率预期从
+  33.6% 降至 15-20%
+- **R1_LATERALITY**：左右侧别由 anatomy_bbox 的 x 轴坐标决定，准确度也随之改善
+- **无 keyword 句子**：行为不变（fallback 到原有 semantic routing）
+
+---
+
+## 第三轮修改清单
+
+### 1) `ProveTok_Main_experiment/config.py`
+
+- `RouterConfig` 新增 `anatomy_spatial_routing: bool = False`
+- `RouterConfig` 新增 `anatomy_tiebreak_eps: float = 0.05`
+
+### 2) `ProveTok_Main_experiment/stage3_router.py`
+
+- `_routing_score` 加分支：当 `anatomy_spatial_routing=True` 且 `anatomy_bbox` 非空时，
+  返回 `iou + anatomy_tiebreak_eps * base`，否则保持原有 Eq(11)
+
+### 3) `run_mini_experiment.py`
+
+- 新增 CLI 参数 `--anatomy_spatial_routing`
+- cfg 装配处设置 `cfg.router.anatomy_spatial_routing = True`
+- `run_meta.json` 新增 `anatomy_spatial_routing` 字段
+
+---
+
 ## 第二轮诊断：50-case Semantic Encoder Sweep 结论
 
 在第一轮修正（hash→semantic encoder）后跑了 50-case R2 sweep（6 组），

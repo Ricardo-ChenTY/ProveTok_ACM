@@ -44,7 +44,14 @@ class Router:
         base = dot(q, v)  # Eq(10), in [-1, 1]
         if anatomy_bbox is None:
             return base
-        return base + self.cfg.lambda_spatial * token.bbox.iou(anatomy_bbox)  # Eq(11)
+        iou = token.bbox.iou(anatomy_bbox)
+        if self.cfg.anatomy_spatial_routing:
+            # Anatomy-primary mode: IoU dominates, semantic dot is a small tiebreaker.
+            # Addresses cross-modal alignment gap: w_proj is identity (untrained),
+            # so dot(text_query, image_feature) is unreliable. Spatial IoU is the
+            # only grounded signal when anatomy_bbox is available.
+            return iou + self.cfg.anatomy_tiebreak_eps * base
+        return base + self.cfg.lambda_spatial * iou  # Eq(11)
 
     def score_tokens(
         self,

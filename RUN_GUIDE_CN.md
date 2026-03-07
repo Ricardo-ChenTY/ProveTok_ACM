@@ -81,7 +81,8 @@ python run_mini_experiment.py \
   --r2_mode ratio \
   --r2_min_support_ratio 0.8 \
   --r4_disabled \
-  --r5_fallback_disabled
+  --r5_fallback_disabled \
+  --anatomy_spatial_routing
 ```
 
 ### 4.2 450/450 全量跑（128³，主实验）
@@ -107,7 +108,8 @@ python run_mini_experiment.py \
   --r2_mode ratio \
   --r2_min_support_ratio 0.8 \
   --r4_disabled \
-  --r5_fallback_disabled
+  --r5_fallback_disabled \
+  --anatomy_spatial_routing
 ```
 
 > 128³ 不加 `--resize_d/h/w`（默认即为 128）。
@@ -158,6 +160,7 @@ out_dir/
 | `--r4_disabled` | 建议开启 | R4 union bbox 阈值未校准，开启避免假阳性 |
 | `--r5_fallback_disabled` | 建议开启 | R5 negation fallback 产生假阳性，开启隔离 |
 | `--r2_mode` | ratio | 可选 `max_iou`（更宽松，见下节） |
+| `--anatomy_spatial_routing` | 建议开启 | 有 anatomy keyword 的句子改用 IoU 主导路由，解决 w_proj 未训练导致的跨模态对齐缺失；预期 R2 从 33.6% 降至 15-20% |
 
 ---
 
