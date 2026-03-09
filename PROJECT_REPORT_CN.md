@@ -40,8 +40,9 @@ graph TD
         TB[("Evidence Token Bank<br/>最大 64 个, 含 BBox & 特征")]:::done
 
         V --> S0 & S1
-        S0 -.->|"Artifact State"| S2
-        S1 -.->|"Feature Map"| S2
+        %% 改用实线，强制 Mermaid 分配足够的纵向空间，避免标签与边框重叠
+        S0 -->|"Artifact State"| S2
+        S1 -->|"Feature Map"| S2
         S2 --> TB
     end
 
@@ -67,7 +68,8 @@ graph TD
     end
 
     subgraph Stage4 ["4. M4: 纯空间与几何验证器 (当前总体违规率 15.2%)"]
-        VF{"Verifier: 5条规则并行审计"}:::highlight
+        %% 废弃菱形，改用圆角矩形并强制换行，彻底解决文字溢出
+        VF("Verifier<br/>5条规则并行审计"):::highlight
         
         R1["R1: LATERALITY (侧别)<br/>[已完成] Ratio ≥ 0.6 触发<br/>(已豁免否定句与中线结构)"]:::done
         R2["R2: ANATOMY (解剖)<br/>[已完成] Ratio ≥ 0.8 触发<br/>(已豁免 bilateral/lung 大框)"]:::done
