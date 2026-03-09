@@ -21,11 +21,12 @@ Markdown
 
 ```mermaid
 graph TD
-    classDef done fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
-    classDef todo fill:#fff3e0,stroke:#f57c00,stroke-width:2px,stroke-dasharray: 5 5;
-    classDef future fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,stroke-dasharray: 5 5;
-    classDef disabled fill:#f9f9f9,stroke:#999,stroke-dasharray: 5 5,color:#999;
-    classDef highlight fill:#fff,stroke:#d32f2f,stroke-width:2px;
+    %% 专为 GitHub 深色模式优化的配色方案
+    classDef done fill:#0f3f21,stroke:#2ea043,stroke-width:2px,color:#ffffff;
+    classDef todo fill:#592f00,stroke:#d25c00,stroke-width:2px,stroke-dasharray: 5 5,color:#ffffff;
+    classDef future fill:#0b2c5c,stroke:#1f6feb,stroke-width:2px,stroke-dasharray: 5 5,color:#ffffff;
+    classDef disabled fill:#21262d,stroke:#484f58,stroke-width:1px,stroke-dasharray: 5 5,color:#8b949e;
+    classDef highlight fill:#490202,stroke:#da3633,stroke-width:2px,color:#ffffff;
 
     subgraph Inputs ["1. 原始输入 (Inputs)"]
         V["CT 体数据 (NIfTI)"]:::done
