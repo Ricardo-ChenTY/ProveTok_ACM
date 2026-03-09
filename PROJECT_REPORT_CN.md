@@ -17,69 +17,83 @@ Markdown
 
 ---
 
-## 0. 最新系统架构概览 (Stage 0-4 锁定版本)
+## 0. 最新系统架构概览 (Stage 0-4 锁定版本)，ProveTok_ACM 深度技术架构与演进路线图 (当前违规率: 15.2%)
 
 ```mermaid
 graph TD
+    classDef done fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
+    classDef todo fill:#fff3e0,stroke:#f57c00,stroke-width:2px,stroke-dasharray: 5 5;
+    classDef future fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,stroke-dasharray: 5 5;
     classDef disabled fill:#f9f9f9,stroke:#999,stroke-dasharray: 5 5,color:#999;
-    classDef highlight fill:#e1f5fe,stroke:#4285f4,stroke-width:2px;
-    classDef core fill:#fff3e0,stroke:#f57c00,stroke-width:2px;
+    classDef highlight fill:#fff,stroke:#d32f2f,stroke-width:2px;
 
-    subgraph Inputs ["1. 原始输入"]
-        V["CT Volume / NIfTI"]
-        R["放射报告文本"]
+    subgraph Inputs ["1. 原始输入 (Inputs)"]
+        V["CT 体数据 (NIfTI)"]:::done
+        R["人类专家放射报告"]:::done
     end
 
-    subgraph Stage0_2 ["2. M1: Evidence Token Bank 构建"]
-        S0["Stage 0: 伪影风险评分<br/>(Artifact Risk Ai)"]
-        S1["Stage 1: 冻结 3D 编码器<br/>(Frozen SwinUNETR)"]
-        S2["Stage 2: 自适应八叉树分割<br/>(Adaptive Octree Splitter)"]
-        
+    subgraph Stage0_2 ["2. M1: 空间证据 Token Bank (基于确定性规则) [已完成]"]
+        S0["Stage 0: 伪影风险评分<br/>(综合 SNR, streak, outlier)"]:::done
+        S1["Stage 1: 冻结的 3D 编码器<br/>(Frozen SwinUNETR, 提取特征)"]:::done
+        S2["Stage 2: 自适应八叉树分割<br/>(基于重要性分数分裂)"]:::done
+        TB[("Evidence Token Bank<br/>最大 64 个, 含 BBox & 特征")]:::done
+
         V --> S0 & S1
-        S0 -->|"Artifact State"| S2
-        S1 -->|"Feature Map"| S2
-        S2 -->|"Budget B=64"| TB[("Token Bank<br/>包含: BBox, Level, Feature")]
+        S0 -.->|"Artifact State"| S2
+        S1 -.->|"Feature Map"| S2
+        S2 --> TB
     end
 
-    subgraph Stage3 ["3. M2: Anatomy-Primary 跨模态路由"]
-        P["Report Sentence Planner<br/>正则提取: 解剖词 / 侧别 / 否定"]
-        AR["Anatomy Resolver<br/>解剖词 -> BBox 映射"]
-        RT["Router<br/>路由分配引擎"]
+    subgraph Stage3 ["3. M2: 跨模态轻量路由层 (Router)"]
+        P["Report Planner (当前)<br/>[已完成] 正则提取: 解剖词/侧别/否定"]:::done
+        AR["Anatomy Resolver (当前)<br/>[已完成] 词表映射 & Left/Right Lung 兜底"]:::done
         
+        LLM_P["Stage 3a: LLM 高级规划器 [还没做]<br/>(解析上下文, 输出 JSON 结构化病灶/解剖/否定)"]:::future
+        FixR1["动态解剖词表扩展 [待做 P1]<br/>(如新增 pleural space 等精细 BBox)"]:::todo
+
+        RT["Router: Anatomy-Primary [已完成]<br/>Score = IoU + ε * Semantic (语义仅作 tiebreaker)"]:::done
+
         R --> P
         P --> AR
-        AR -.->|"*新增: left/right lung 兜底*"| AR
-        
+        AR -.->|"短期打补丁"| FixR1
+        P -.->|"长期彻底替代"| LLM_P
+
         P -->|"Text Query"| RT
         AR -->|"Anatomy BBox"| RT
-        TB -->|"Token 特征"| RT
+        TB -->|"Token BBox & 特征"| RT
         
-        RT -->|"*锁定打分策略*<br/>Score = IoU + ε * Semantic"| TKT["Top-k 引用 Tokens<br/>默认 k=8"]
-        class RT highlight
+        RT -->|"Top-k 采样 (默认 k=8)"| TKT["句子对应的 Top-k 证据 Tokens"]:::done
     end
 
-    subgraph Stage4 ["4. M4: 规则验证器 (当前锁定 450/450 配置)"]
-        VF{"Verifier<br/>5条规则审计"}
-        R1["R1: 侧别一致性 (LATERALITY)<br/>• Ratio 模式 (≥ 0.6)<br/>• 否定句豁免<br/>• 中线词豁免"]
-        R2["R2: 解剖一致性 (ANATOMY)<br/>• Ratio 模式 (≥ 0.8)<br/>• 豁免 Bilateral/Lung/Mediastinum"]
-        R3["R3: 深度一致性 (DEPTH)<br/>• 粗/细粒度校验"]
-        R4["R4: 大小一致性 (SIZE)<br/>• 当前强制禁用"]:::disabled
-        R5["R5: 否定处理 (NEGATION)<br/>• Fallback 词表禁用"]:::disabled
+    subgraph Stage4 ["4. M4: 纯空间与几何验证器 (当前总体违规率 15.2%)"]
+        VF{"Verifier: 5条规则并行审计"}:::highlight
         
+        R1["R1: LATERALITY (侧别)<br/>[已完成] Ratio ≥ 0.6 触发<br/>(已豁免否定句与中线结构)"]:::done
+        R2["R2: ANATOMY (解剖)<br/>[已完成] Ratio ≥ 0.8 触发<br/>(已豁免 bilateral/lung 大框)"]:::done
+        R3["R3: DEPTH (深度)<br/>[已完成] 粗/细粒度校验"]:::done
+        R4["R4: SIZE (大小)<br/>[已禁用] 阈值未校准"]:::disabled
+        R5["R5: NEGATION (否定)<br/>[已禁用] Fallback词表关闭"]:::disabled
+
+        FixR2["修复 R2 结构性误报 [待做 P0]<br/>(将 mediastinum 加入双侧豁免<br/>预计将全局违规率压至 ~9%)"]:::todo
+        LLM_J["LLM 语义裁判 (Judge) [还没做]<br/>(输入 Top-k 视觉特征, 判定是否真实包含描述病灶)"]:::future
+
         TKT --> VF
-        P -->|"Sentence Plan"| VF
-        TB -->|"全局 Tokens"| VF
-        
+        P -->|"传入 Sentence Plan"| VF
+        TB -->|"传入全局 Midline 参考"| VF
+
         VF --> R1 & R2 & R3 & R4 & R5
-        class VF core
-        class R1,R2 highlight
+        R2 -.->|"1行代码消除误报"| FixR2
+        VF -.->|"弥补纯空间无语义的短板"| LLM_J
     end
 
-    subgraph Outputs ["5. 最终交付物"]
-        OUT["trace.jsonl (句级追溯日志)<br/>summary.csv (全局违规统计)<br/>validation_report.json"]
+    subgraph Stage5 ["5. 终极愿景: Token 门控生成与自纠错 [还没做]"]
+        TG["Stage 3c: Token-Gated Generation<br/>(多模态 LLM 强制基于物理 Tokens 生成描述)"]:::future
+        SR["Stage 5: 严重度驱动重路由 (Reroute)<br/>(r' = r - γ * ln(1 + sev) 更新分数并重新采样)"]:::future
     end
 
-    R1 & R2 & R3 & R4 & R5 -->|"违规判定 & 严重度 sev"| OUT
+    R1 & R2 & R3 -.->|"若判定违规且严重度 sev > 0"| SR
+    SR -.->|"反馈惩罚, 触发一次性 Retry"| RT
+    TKT -.->|"作为 Grounded 视觉前缀"| TG
 ```
     
 ## 1. 项目背景与目标
