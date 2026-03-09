@@ -2,6 +2,23 @@
 
 更新日期：2026-03-08
 
+啊，这是 Mermaid 语法解析的一个常见问题！
+
+错误的原因是节点名称中包含了圆括号 () 和 <br/> 标签，而在 Mermaid 中，[ ] 定义矩形节点时，如果内部包含这些特殊字符而不加双引号，解析器就会报错（它把 ( 误当成了某种特殊形状的语法标志）。
+
+解决方法很简单：把所有带有复杂文本、<br/> 或括号的节点描述，用双引号 " " 括起来。 比如把 S0[Stage 0: 伪影风险评分<br/>(Artifact Risk Ai)] 改成 S0["Stage 0: 伪影风险评分<br/>(Artifact Risk Ai)"]。
+
+我帮你把整个图表的文本都加上了安全的引号，请用下面这段代码替换你原来的：
+
+Markdown
+# ProveTok_ACM 项目报告
+
+更新日期：2026-03-08
+
+---
+
+## 0. 最新系统架构概览 (Stage 0-4 锁定版本)
+
 ```mermaid
 graph TD
     classDef disabled fill:#f9f9f9,stroke:#999,stroke-dasharray: 5 5,color:#999;
@@ -9,49 +26,49 @@ graph TD
     classDef core fill:#fff3e0,stroke:#f57c00,stroke-width:2px;
 
     subgraph Inputs ["1. 原始输入"]
-        V[CT Volume / NIfTI]
-        R[放射报告文本]
+        V["CT Volume / NIfTI"]
+        R["放射报告文本"]
     end
 
     subgraph Stage0_2 ["2. M1: Evidence Token Bank 构建"]
-        S0[Stage 0: 伪影风险评分<br/>(Artifact Risk Ai)]
-        S1[Stage 1: 冻结 3D 编码器<br/>(Frozen SwinUNETR)]
-        S2[Stage 2: 自适应八叉树分割<br/>(Adaptive Octree Splitter)]
+        S0["Stage 0: 伪影风险评分<br/>(Artifact Risk Ai)"]
+        S1["Stage 1: 冻结 3D 编码器<br/>(Frozen SwinUNETR)"]
+        S2["Stage 2: 自适应八叉树分割<br/>(Adaptive Octree Splitter)"]
         
         V --> S0 & S1
-        S0 -->|Artifact State| S2
-        S1 -->|Feature Map| S2
-        S2 -->|Budget B=64| TB[(Token Bank<br/>包含: BBox, Level, Feature)]
+        S0 -->|"Artifact State"| S2
+        S1 -->|"Feature Map"| S2
+        S2 -->|"Budget B=64"| TB[("Token Bank<br/>包含: BBox, Level, Feature")]
     end
 
     subgraph Stage3 ["3. M2: Anatomy-Primary 跨模态路由"]
-        P[Report Sentence Planner<br/>正则提取: 解剖词 / 侧别 / 否定]
-        AR[Anatomy Resolver<br/>解剖词 -> BBox 映射]
-        RT[Router<br/>路由分配引擎]
+        P["Report Sentence Planner<br/>正则提取: 解剖词 / 侧别 / 否定"]
+        AR["Anatomy Resolver<br/>解剖词 -> BBox 映射"]
+        RT["Router<br/>路由分配引擎"]
         
         R --> P
         P --> AR
-        AR -.->|*新增: left/right lung 兜底*| AR
+        AR -.->|"*新增: left/right lung 兜底*"| AR
         
-        P -->|Text Query| RT
-        AR -->|Anatomy BBox| RT
-        TB -->|Token 特征| RT
+        P -->|"Text Query"| RT
+        AR -->|"Anatomy BBox"| RT
+        TB -->|"Token 特征"| RT
         
-        RT -->|*锁定打分策略*<br/>Score = IoU + ε * Semantic| TKT[Top-k 引用 Tokens<br/>默认 k=8]
+        RT -->|"*锁定打分策略*<br/>Score = IoU + ε * Semantic"| TKT["Top-k 引用 Tokens<br/>默认 k=8"]
         class RT highlight
     end
 
     subgraph Stage4 ["4. M4: 规则验证器 (当前锁定 450/450 配置)"]
-        VF{Verifier<br/>5条规则审计}
-        R1[R1: 侧别一致性 (LATERALITY)<br/>• Ratio 模式 (≥ 0.6)<br/>• 否定句豁免<br/>• 中线词豁免]
-        R2[R2: 解剖一致性 (ANATOMY)<br/>• Ratio 模式 (≥ 0.8)<br/>• 豁免 Bilateral/Lung/Mediastinum]
-        R3[R3: 深度一致性 (DEPTH)<br/>• 粗/细粒度校验]
-        R4[R4: 大小一致性 (SIZE)<br/>• 当前强制禁用]:::disabled
-        R5[R5: 否定处理 (NEGATION)<br/>• Fallback 词表禁用]:::disabled
+        VF{"Verifier<br/>5条规则审计"}
+        R1["R1: 侧别一致性 (LATERALITY)<br/>• Ratio 模式 (≥ 0.6)<br/>• 否定句豁免<br/>• 中线词豁免"]
+        R2["R2: 解剖一致性 (ANATOMY)<br/>• Ratio 模式 (≥ 0.8)<br/>• 豁免 Bilateral/Lung/Mediastinum"]
+        R3["R3: 深度一致性 (DEPTH)<br/>• 粗/细粒度校验"]
+        R4["R4: 大小一致性 (SIZE)<br/>• 当前强制禁用"]:::disabled
+        R5["R5: 否定处理 (NEGATION)<br/>• Fallback 词表禁用"]:::disabled
         
         TKT --> VF
-        P -->|Sentence Plan| VF
-        TB -->|全局 Tokens| VF
+        P -->|"Sentence Plan"| VF
+        TB -->|"全局 Tokens"| VF
         
         VF --> R1 & R2 & R3 & R4 & R5
         class VF core
@@ -59,10 +76,10 @@ graph TD
     end
 
     subgraph Outputs ["5. 最终交付物"]
-        OUT[trace.jsonl (句级追溯日志)<br/>summary.csv (全局违规统计)<br/>validation_report.json]
+        OUT["trace.jsonl (句级追溯日志)<br/>summary.csv (全局违规统计)<br/>validation_report.json"]
     end
 
-    R1 & R2 & R3 & R4 & R5 -->|违规判定 & 严重度 sev| OUT
+    R1 & R2 & R3 & R4 & R5 -->|"违规判定 & 严重度 sev"| OUT
 ```
     
 ## 1. 项目背景与目标
