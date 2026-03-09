@@ -27,6 +27,9 @@ graph TD
     classDef future fill:#0b2c5c,stroke:#1f6feb,stroke-width:2px,stroke-dasharray: 5 5,color:#ffffff;
     classDef disabled fill:#21262d,stroke:#484f58,stroke-width:1px,stroke-dasharray: 5 5,color:#8b949e;
     classDef highlight fill:#490202,stroke:#da3633,stroke-width:2px,color:#ffffff;
+    
+    %% 定义完全透明的隐形垫片，用于撑开标题和几何块的距离
+    classDef spacer fill:none,stroke:none,color:transparent;
 
     subgraph Inputs ["1. 原始输入 (Inputs)"]
         V["CT 体数据 (NIfTI)"]:::done
@@ -34,19 +37,21 @@ graph TD
     end
 
     subgraph Stage0_2 ["2. M1: 空间证据 Token Bank (基于确定性规则) [已完成]"]
+        pad1["&nbsp;"]:::spacer
         S0["Stage 0: 伪影风险评分<br/>(综合 SNR, streak, outlier)"]:::done
         S1["Stage 1: 冻结的 3D 编码器<br/>(Frozen SwinUNETR, 提取特征)"]:::done
         S2["Stage 2: 自适应八叉树分割<br/>(基于重要性分数分裂)"]:::done
         TB[("Evidence Token Bank<br/>最大 64 个, 含 BBox & 特征")]:::done
 
-        V --> S0 & S1
-        %% 改用实线，强制 Mermaid 分配足够的纵向空间，避免标签与边框重叠
-        S0 -->|"Artifact State"| S2
-        S1 -->|"Feature Map"| S2
-        S2 --> TB
+        pad1 ~~~ S0 & S1
+        V ---> S0 & S1
+        S0 --->|"Artifact State"| S2
+        S1 --->|"Feature Map"| S2
+        S2 ---> TB
     end
 
     subgraph Stage3 ["3. M2: 跨模态轻量路由层 (Router)"]
+        pad2["&nbsp;"]:::spacer
         P["Report Planner (当前)<br/>[已完成] 正则提取: 解剖词/侧别/否定"]:::done
         AR["Anatomy Resolver (当前)<br/>[已完成] 词表映射 & Left/Right Lung 兜底"]:::done
         
@@ -55,20 +60,21 @@ graph TD
 
         RT["Router: Anatomy-Primary [已完成]<br/>Score = IoU + ε * Semantic (语义仅作 tiebreaker)"]:::done
 
-        R --> P
-        P --> AR
+        pad2 ~~~ P & AR
+        R ---> P
+        P ---> AR
         AR -.->|"短期打补丁"| FixR1
         P -.->|"长期彻底替代"| LLM_P
 
-        P -->|"Text Query"| RT
-        AR -->|"Anatomy BBox"| RT
-        TB -->|"Token BBox & 特征"| RT
+        P --->|"Text Query"| RT
+        AR --->|"Anatomy BBox"| RT
+        TB --->|"Token BBox & 特征"| RT
         
-        RT -->|"Top-k 采样 (默认 k=8)"| TKT["句子对应的 Top-k 证据 Tokens"]:::done
+        RT --->|"Top-k 采样 (默认 k=8)"| TKT["句子对应的 Top-k 证据 Tokens"]:::done
     end
 
     subgraph Stage4 ["4. M4: 纯空间与几何验证器 (当前总体违规率 15.2%)"]
-        %% 废弃菱形，改用圆角矩形并强制换行，彻底解决文字溢出
+        pad3["&nbsp;"]:::spacer
         VF("Verifier<br/>5条规则并行审计"):::highlight
         
         R1["R1: LATERALITY (侧别)<br/>[已完成] Ratio ≥ 0.6 触发<br/>(已豁免否定句与中线结构)"]:::done
@@ -80,18 +86,22 @@ graph TD
         FixR2["修复 R2 结构性误报 [待做 P0]<br/>(将 mediastinum 加入双侧豁免<br/>预计将全局违规率压至 ~9%)"]:::todo
         LLM_J["LLM 语义裁判 (Judge) [还没做]<br/>(输入 Top-k 视觉特征, 判定是否真实包含描述病灶)"]:::future
 
-        TKT --> VF
-        P -->|"传入 Sentence Plan"| VF
-        TB -->|"传入全局 Midline 参考"| VF
+        pad3 ~~~ VF
+        TKT ---> VF
+        P --->|"传入 Sentence Plan"| VF
+        TB --->|"传入全局 Midline 参考"| VF
 
-        VF --> R1 & R2 & R3 & R4 & R5
+        VF ---> R1 & R2 & R3 & R4 & R5
         R2 -.->|"1行代码消除误报"| FixR2
         VF -.->|"弥补纯空间无语义的短板"| LLM_J
     end
 
     subgraph Stage5 ["5. 终极愿景: Token 门控生成与自纠错 [还没做]"]
+        pad4["&nbsp;"]:::spacer
         TG["Stage 3c: Token-Gated Generation<br/>(多模态 LLM 强制基于物理 Tokens 生成描述)"]:::future
         SR["Stage 5: 严重度驱动重路由 (Reroute)<br/>(r' = r - γ * ln(1 + sev) 更新分数并重新采样)"]:::future
+        
+        pad4 ~~~ TG & SR
     end
 
     R1 & R2 & R3 -.->|"若判定违规且严重度 sev > 0"| SR
