@@ -451,6 +451,16 @@ Step 4: 结果稳定后 → 450/450 全量
 
 ---
 
+### 说明：M2 路由器的 W_proj 训练（当前绕开，长期方向）
+
+数学文档（CP_priorjudgement.pdf）的 M2 章节用完整 InfoNCE 推导假设 `W_proj`（文本→图像投影矩阵）是**经过对比学习训练**的，此时语义余弦路由分数才有校准意义。
+
+**当前实际情况**：`W_proj` 未训练，语义点积不可靠。为此我们在 Stage 3 使用了 `anatomy_spatial_routing` 模式（`score = IoU + ε × semantic`），让 IoU 主导路由，语义分仅作 tiebreaker，从而在不依赖训练的前提下保证路由质量。
+
+**对后续计划的影响**：P1/P2/P3 均不需要先训练 W_proj。W_proj 训练属于更长期的 M2 优化方向，在当前 anatomy-primary 模式下不是瓶颈，可在 P3（Token-Gated Generation）阶段再统一考虑。
+
+---
+
 ### 各阶段执行顺序总结
 
 ```
