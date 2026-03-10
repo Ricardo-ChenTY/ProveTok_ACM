@@ -1,0 +1,22 @@
+# Model weights (too large for git)
+models/*/
+!models/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+
+# Outputs
+outputs*/
+*.jsonl
+*.npy
+*.pt
+!train_wprojection.py
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store

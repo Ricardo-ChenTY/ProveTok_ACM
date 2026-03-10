@@ -1,5 +1,83 @@
 # Recent Changes (CN)
 
+更新日期：2026-03-10
+
+## 第九轮：接入 LLM —— Stage 5 裁判 + Stage 3c 生成 + W_proj 训练
+
+### 背景
+
+Stage 0-4 是纯规则 + 空间 IoU 的验证系统，没有语义理解能力。本轮新增两条 LLM 路线，分步推进：
+
+- **P1（Stage 5 LLM Judge）**：用 LLM 对 Stage 4 找到的违规做二次裁决，确认真实违规 → 按 CP .tex 公式惩罚路由分数，过滤误报
+- **Stage 3c（Token-Gated Generation）**：需先训练 W_proj（InfoNCE），再用 LLM 以 token 空间坐标为上下文生成报告句子（CP .tex 核心贡献）
+
+### 新增文件
+
+| 文件 | 作用 |
+|------|------|
+| `ProveTok_Main_experiment/stage5_llm_judge.py` | Stage 5 LLM 裁判，支持 Ollama / OpenAI / Anthropic / HuggingFace 四种后端 |
+| `ProveTok_Main_experiment/stage3c_generator.py` | Stage 3c LLM 报告生成，同样支持四种后端 |
+| `train_wprojection.py` | InfoNCE 训练 W_proj，读取 Stage 0-4 的 trace.jsonl + tokens.pt 作为训练数据 |
+| `models/` | 本地模型目录（git 不追踪），下载模型放到 `models/Llama-3.1-8B-Instruct/` |
+| `.gitignore` | 排除 `models/*/` 和大文件 |
+
+### 修改文件
+
+**`ProveTok_Main_experiment/config.py`**
+
+- 新增 `LLMJudgeConfig` dataclass（backend / model / alpha / ollama_host / hf_device_map / hf_torch_dtype / hf_token / fail_open）
+- `ProveTokConfig` 新增 `llm_judge: LLMJudgeConfig`
+
+**`ProveTok_Main_experiment/stage0_4_runner.py`**
+
+- `Stage04Components` 新增 `llm_judge: Optional[LLMJudge] = None`
+- `run_case_stage0_4()` 在 Stage 4 审计后新增 Stage 5 块：
+  - 调用 `llm_judge.judge_all()` 对所有违规句做 LLM 裁决
+  - 对确认违规句应用 CP .tex 惩罚：`S'_i = S_i × (1 - α × sev_i)`
+  - 标记 `s_out.rerouted = True, stop_reason = "llm_judge_penalty"`
+  - `stage5_judgements` 写入 `trace.jsonl` 每个 sentence 行
+- 返回值新增 `n_judge_confirmed`
+
+**`run_mini_experiment.py`**
+
+- 新增 `--llm_judge` / `--llm_judge_model` / `--llm_judge_alpha` / `--llm_judge_ollama_host` / `--llm_judge_hf_device_map` / `--llm_judge_hf_torch_dtype` / `--llm_judge_hf_token` 共 7 个参数
+- HuggingFace 后端默认模型路径：`models/Llama-3.1-8B-Instruct`（本地目录，自动解析为绝对路径）
+- 本地路径不传 token，远程 Hub 才传
+- `run_meta.json` 记录 `llm_judge_backend / llm_judge_model / llm_judge_alpha`
+- `summary.csv` 新增 `n_judge_confirmed` 列
+
+### Stage 5 核心逻辑
+
+```
+Stage 4 Verifier
+  → violations (R1/R2/R3/R5)
+  → LLM Judge（每条违规独立问 LLM）
+      LLM 回复：{"confirmed": true/false, "severity": 0.0-1.0, "reasoning": "..."}
+  → 确认的违规 → 惩罚路由分数
+      S'_i = S_i × (1 - alpha × max_confirmed_severity)
+  → trace.jsonl 记录裁决结果
+```
+
+### W_proj 训练（Stage 3c 前置）
+
+```bash
+# 先跑 Stage 0-4 生成 token bank
+python run_mini_experiment.py --ctrate_csv ... --radgenome_csv ... --max_cases 50
+
+# 再训练 W_proj
+python train_wprojection.py \
+  --cases_dir outputs_stage0_4/cases \
+  --text_encoder semantic \
+  --epochs 50 \
+  --out_dir outputs_wprojection
+```
+
+### 决策
+
+两条路线都要做，顺序：P1 先上（快，LLM 直接接 Stage 4 后），Stage 3c 后做（需要训练 W_proj）。
+
+---
+
 更新日期：2026-03-08
 
 ## 第八轮：bbox 边界对齐 + 直接上 450/450

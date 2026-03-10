@@ -68,8 +68,26 @@ class RerouteConfig:
 
 
 @dataclass
+class LLMJudgeConfig:
+    """Stage 5: LLM-as-Semantic-Judge configuration."""
+    # Backend: "ollama" | "openai" | "anthropic"
+    backend: str = "ollama"
+    # Model name (backend-specific, e.g. "qwen2.5:7b", "gpt-4o-mini", "claude-haiku-4-5-20251001")
+    model: str = "qwen2.5:7b"
+    # CP .tex penalty scale: S'_i = S_i * (1 - alpha * sev_i)
+    alpha: float = 0.5
+    # Ollama endpoint
+    ollama_host: str = "http://localhost:11434"
+    timeout_s: float = 30.0
+    temperature: float = 0.0
+    # Conservative on LLM failure: keep original violation (True) or dismiss (False)
+    fail_open: bool = True
+
+
+@dataclass
 class ProveTokConfig:
     split: SplitConfig = field(default_factory=SplitConfig)
     router: RouterConfig = field(default_factory=RouterConfig)
     verifier: VerifierConfig = field(default_factory=VerifierConfig)
     reroute: RerouteConfig = field(default_factory=RerouteConfig)
+    llm_judge: LLMJudgeConfig = field(default_factory=LLMJudgeConfig)

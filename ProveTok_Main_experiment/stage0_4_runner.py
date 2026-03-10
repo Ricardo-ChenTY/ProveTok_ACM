@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from .config import ProveTokConfig
 from .simple_modules import ReportSentencePlanner, RuleBasedAnatomyResolver
@@ -12,6 +12,7 @@ from .stage1_swinunetr_encoder import FrozenSwinUNETREncoder
 from .stage2_octree_splitter import AdaptiveOctreeSplitter
 from .stage3_router import Router
 from .stage4_verifier import Verifier
+from .stage5_llm_judge import LLMJudge
 from .token_bank_io import save_token_bank_case
 from .types import BBox3D, SentenceOutput
 
@@ -25,6 +26,7 @@ class Stage04Components:
     anatomy_resolver: RuleBasedAnatomyResolver
     router: Router
     verifier: Verifier
+    llm_judge: Optional[LLMJudge] = None
 
 
 def run_case_stage0_4(
@@ -92,9 +94,34 @@ def run_case_stage0_4(
         )
 
     audits = comp.verifier.audit_all(sentence_outputs, plans, tokens)
+
+    # Stage 5: LLM judge — confirm/dismiss violations and apply score penalty
+    stage5_judgements: Dict[int, object] = {}
+    if comp.llm_judge is not None:
+        judgements = comp.llm_judge.judge_all(sentence_outputs, audits)
+        for s_out in sentence_outputs:
+            j = judgements.get(s_out.sentence_index)
+            if j is None or not j.any_confirmed():
+                continue
+            # Apply CP .tex penalty: S'_i = S_i * (1 - alpha * sev_i)
+            penalized = comp.llm_judge.reroute_scores(s_out.route_scores, j.verdicts)
+            s_out.route_scores = penalized
+            s_out.rerouted = True
+            s_out.stop_reason = "llm_judge_penalty"
+            stage5_judgements[s_out.sentence_index] = [
+                {
+                    "rule_id": v.rule_id,
+                    "confirmed": v.confirmed,
+                    "adjusted_severity": v.adjusted_severity,
+                    "reasoning": v.reasoning,
+                }
+                for v in j.verdicts
+            ]
+
     violations_by_sentence = {a.sentence_index: [asdict(v) for v in a.violations] for a in audits}
     for row in sentence_logs:
         row["violations"] = violations_by_sentence.get(row["sentence_index"], [])
+        row["stage5_judgements"] = stage5_judgements.get(row["sentence_index"], [])
 
     b_plan = cfg.router.planning_budget(cfg.split.token_budget_b)
     trace_jsonl = out_dir / "trace.jsonl"
@@ -117,10 +144,16 @@ def run_case_stage0_4(
             f.write(json.dumps(payload, ensure_ascii=False) + "\n")
 
     n_violate = sum(len(a.violations) for a in audits)
+    n_judge_confirmed = sum(
+        1
+        for v_list in stage5_judgements.values()
+        if isinstance(v_list, list) and any(v.get("confirmed") for v in v_list)  # type: ignore[union-attr]
+    )
     return {
         "case_id": case_id,
         "n_tokens": len(tokens),
         "n_sentences": len(sentence_logs),
         "n_violations": int(n_violate),
+        "n_judge_confirmed": int(n_judge_confirmed),
         "trace_jsonl": str(trace_jsonl),
     }
