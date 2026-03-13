@@ -49,7 +49,7 @@ fi
 
 echo "=========================================="
 echo "Stage 0-5  |  200/200  |  Llama-3.1-8B"
-echo "tau_iou = 0.04  |  token_budget_b = 128"
+echo "tau_iou = 0.04  |  token_budget_b = 128  |  shuffle_seed = 99"
 echo "模型: ${MODEL_DIR}"
 echo "OUT:  ${OUT_DIR}"
 echo "=========================================="
@@ -69,6 +69,7 @@ python "${PROJ_ROOT}/run_mini_experiment.py" \
   --out_dir       "${OUT_DIR}" \
   --max_cases 200 \
   --expected_cases_per_dataset 200 \
+  --shuffle_seed 99 \
   --cp_strict \
   --encoder_ckpt  "${ENCODER_CKPT}" \
   --text_encoder  semantic \

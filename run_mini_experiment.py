@@ -39,9 +39,12 @@ def _run_manifest(
     text_encoder: Callable[[str], List[float]],
     expected_cases: int = 0,
     llm_judge: Optional[LLMJudge] = None,
+    shuffle_seed: Optional[int] = None,
 ) -> Tuple[pd.DataFrame, Dict[str, object]]:
     df_all = pd.read_csv(manifest_csv)
     n_available = int(len(df_all))
+    if shuffle_seed is not None:
+        df_all = df_all.sample(frac=1, random_state=shuffle_seed).reset_index(drop=True)
     df = df_all.head(max_cases).reset_index(drop=True)
     n_selected = int(len(df))
     if expected_cases > 0 and n_selected != expected_cases:
@@ -140,6 +143,8 @@ def main() -> None:
     parser.add_argument("--report_col", type=str, default="report_text")
     parser.add_argument("--case_id_col", type=str, default="case_id")
     parser.add_argument("--max_cases", type=int, default=450)
+    parser.add_argument("--shuffle_seed", type=int, default=None,
+                        help="If set, shuffle manifest with this seed before taking head(max_cases)")
     parser.add_argument("--encoder_ckpt", type=str, default=None)
     parser.add_argument("--device", type=str, default="cuda")
     parser.add_argument("--resize_d", type=int, default=128)
@@ -396,6 +401,7 @@ def main() -> None:
         text_encoder=text_encoder,
         expected_cases=int(args.expected_cases_per_dataset),
         llm_judge=llm_judge,
+        shuffle_seed=args.shuffle_seed,
     )
     rg_df, rg_meta = _run_manifest(
         dataset_name="radgenome",
@@ -412,6 +418,7 @@ def main() -> None:
         text_encoder=text_encoder,
         expected_cases=int(args.expected_cases_per_dataset),
         llm_judge=llm_judge,
+        shuffle_seed=args.shuffle_seed,
     )
     summary = pd.concat([ct_df, rg_df], axis=0, ignore_index=True)
     summary.to_csv(out_dir / "summary.csv", index=False)
