@@ -13,8 +13,8 @@
 set -euo pipefail
 
 # ─── 固定输入路径 ────────────────────────────────────────
-CTRATE_CSV="/data/ProveTok_ACM/manifests/ctrate_manifest.csv"
-RADGENOME_CSV="/data/ProveTok_ACM/manifests/radgenome_manifest.csv"
+CTRATE_CSV="/data/ProveTok_ACM/manifests/ctrate_900_manifest.csv"
+RADGENOME_CSV="/data/ProveTok_ACM/manifests/radgenome_900_manifest.csv"
 ENCODER_CKPT="/data/ProveTok_ACM/checkpoints/swinunetr.ckpt"
 # ─────────────────────────────────────────────────────────
 
@@ -50,6 +50,7 @@ fi
 
 echo "=========================================="
 echo "Stage 0-5  |  450/450  |  Llama-3.1-8B 裁判"
+echo "tau_iou = 0.04  |  token_budget_b = 128  |  shuffle_seed = 42"
 echo "模型: ${MODEL_DIR}"
 echo "OUT:  ${OUT_DIR}"
 echo "=========================================="
@@ -75,10 +76,11 @@ python "${PROJ_ROOT}/run_mini_experiment.py" \
   --text_encoder_model sentence-transformers/all-MiniLM-L6-v2 \
   --text_encoder_device cuda \
   --device cuda \
-  --token_budget_b 64 \
+  --shuffle_seed 42 \
+  --token_budget_b 128 \
   --k_per_sentence 8 \
   --lambda_spatial 0.3 \
-  --tau_iou 0.05 \
+  --tau_iou 0.04 \
   --beta 0.1 \
   --r2_mode ratio \
   --r2_min_support_ratio 0.8 \
@@ -90,9 +92,9 @@ python "${PROJ_ROOT}/run_mini_experiment.py" \
   --r1_skip_midline \
   --r1_min_same_side_ratio 0.6 \
   --llm_judge huggingface \
+  --llm_judge_model "${MODEL_DIR}" \
   --llm_judge_hf_torch_dtype bfloat16 \
-  --llm_judge_alpha 0.5
-  # --llm_judge_model 自动找 models/Llama-3.1-8B-Instruct，不需要手动传
+  --llm_judge_alpha 0.5 2>&1 | tee "${OUT_DIR}/run.log"
 
 # 3. 结构验收
 python "${PROJ_ROOT}/validate_stage0_4_outputs.py" \
