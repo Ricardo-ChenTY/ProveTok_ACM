@@ -42,6 +42,7 @@ def _run_manifest(
     llm_judge: Optional[LLMJudge] = None,
     generator: Optional[Stage3cGenerator] = None,
     shuffle_seed: Optional[int] = None,
+    w_proj: Optional[List[List[float]]] = None,
 ) -> Tuple[pd.DataFrame, Dict[str, object]]:
     df_all = pd.read_csv(manifest_csv)
     n_available = int(len(df_all))
@@ -83,7 +84,7 @@ def _run_manifest(
         splitter=AdaptiveOctreeSplitter(cfg.split),
         planner=ReportSentencePlanner(max_sentences=8),
         anatomy_resolver=RuleBasedAnatomyResolver(),
-        router=Router(cfg=cfg.router, text_encoder=text_encoder, w_proj=None),
+        router=Router(cfg=cfg.router, text_encoder=text_encoder, w_proj=w_proj),
         verifier=Verifier(cfg.verifier, RuleBasedAnatomyResolver()),
         llm_judge=llm_judge,
         generator=generator,
@@ -211,6 +212,12 @@ def main() -> None:
     parser.add_argument("--r1_skip_midline", action="store_true", help="Skip R1_LATERALITY for midline anatomy keywords (mediastinum, trachea, aorta, esophagus, spine, etc.) that span the midline by definition.")
     parser.add_argument("--r1_min_same_side_ratio", type=float, default=None, help="R1 fires only when fraction of non-cross tokens on the claimed side < this threshold. Default 1.0 (strict all-or-nothing). 0.6 recommended for ratio mode.")
     parser.add_argument("--lateral_tolerance", type=float, default=None, help="Half-width of the midline dead zone (normalized x). Tokens within x_mid ± tol are classified as 'cross' and excluded from R1 laterality check. 0.0 = strict midline (default). Try 0.05 to absorb near-midline tokens.")
+    parser.add_argument(
+        "--w_proj_path",
+        type=str,
+        default=None,
+        help="Path to trained W_proj .pt file. If set, uses learned projection instead of identity.",
+    )
     parser.add_argument(
         "--anatomy_spatial_routing",
         action="store_true",
@@ -395,6 +402,14 @@ def main() -> None:
         st_device=args.text_encoder_device,
     )
 
+    # Load trained W_proj if provided
+    _w_proj_matrix = None
+    if args.w_proj_path:
+        import torch
+        _w = torch.load(args.w_proj_path, weights_only=True)
+        _w_proj_matrix = _w.tolist()  # Convert to List[List[float]] for Router
+        print(f"[W_proj] Loaded trained projection from {args.w_proj_path} (shape {list(_w.shape)})")
+
     # Common paths
     _PROJECT_ROOT = Path(__file__).parent
     _LOCAL_LLAMA = _PROJECT_ROOT / "models" / "Llama-3.1-8B-Instruct"
@@ -497,6 +512,7 @@ def main() -> None:
         llm_judge=llm_judge,
         generator=generator,
         shuffle_seed=args.shuffle_seed,
+        w_proj=_w_proj_matrix,
     )
     rg_df, rg_meta = _run_manifest(
         dataset_name="radgenome",
@@ -515,6 +531,7 @@ def main() -> None:
         llm_judge=llm_judge,
         generator=generator,
         shuffle_seed=args.shuffle_seed,
+        w_proj=_w_proj_matrix,
     )
     summary = pd.concat([ct_df, rg_df], axis=0, ignore_index=True)
     summary.to_csv(out_dir / "summary.csv", index=False)
@@ -544,6 +561,7 @@ def main() -> None:
         "r1_skip_midline": bool(args.r1_skip_midline),
         "r1_min_same_side_ratio": float(cfg.verifier.r1_min_same_side_ratio),
         "lateral_tolerance": float(cfg.verifier.lateral_tolerance),
+        "w_proj_path": str(args.w_proj_path) if args.w_proj_path else None,
         "anatomy_spatial_routing": bool(cfg.router.anatomy_spatial_routing),
         "llm_judge_backend": str(args.llm_judge) if args.llm_judge else None,
         "llm_judge_model": str(args.llm_judge_model) if args.llm_judge else None,
